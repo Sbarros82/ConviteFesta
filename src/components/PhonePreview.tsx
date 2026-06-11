@@ -9,6 +9,7 @@ interface PhonePreviewProps {
   invitation: Invitation;
   isPreviewMode?: boolean;
   onGuestConfirmed?: () => void;
+  className?: string;
 }
 
 export function getYouTubeId(url: string | undefined): string | null {
@@ -18,7 +19,35 @@ export function getYouTubeId(url: string | undefined): string | null {
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
-export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirmed }: PhonePreviewProps) {
+export function safeParseEventDate(dateStr: string, timeStr: string): Date {
+  const timePart = timeStr || "00:00";
+  const [hours, minutes] = timePart.split(":").map(s => parseInt(s, 10) || 0);
+
+  // Split date by hyphen or slash
+  const parts = dateStr.split(/[-/]/);
+  if (parts.length === 3) {
+    const p0 = parseInt(parts[0], 10);
+    const p1 = parseInt(parts[1], 10);
+    const p2 = parseInt(parts[2], 10);
+
+    if (p0 > 1000) {
+      // YYYY-MM-DD
+      return new Date(p0, p1 - 1, p2, hours, minutes, 0);
+    } else if (p2 > 1000) {
+      // DD-MM-YYYY
+      return new Date(p2, p1 - 1, p0, hours, minutes, 0);
+    }
+  }
+
+  // Fallback to native parsing
+  let d = new Date(`${dateStr}T${timePart}:00`);
+  if (isNaN(d.getTime())) {
+    d = new Date(`${dateStr.replace(/-/g, "/")} ${timePart}`);
+  }
+  return d;
+}
+
+export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirmed, className = "h-[580px]" }: PhonePreviewProps) {
   // Parse themes
   const activePreset = PRESET_THEMES.find(t => t.id === invitation.theme_id) || PRESET_THEMES[0];
   
@@ -64,11 +93,11 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
     if (!invitation.data_evento) return;
     
     const calculateTime = () => {
-      const eventDateTime = new Date(`${invitation.data_evento}T${invitation.horario || "00:00"}:00`);
+      const eventDateTime = safeParseEventDate(invitation.data_evento!, invitation.horario || "00:00");
       const now = new Date();
       const difference = eventDateTime.getTime() - now.getTime();
       
-      if (difference <= 0) {
+      if (difference <= 0 || isNaN(difference)) {
         setIsEventOver(true);
         setTimeLeft({ dias: 0, horas: 0, minutos: 0, segundos: 0 });
         return;
@@ -166,7 +195,7 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
 
   return (
     <div 
-      className={`relative w-full h-[580px] rounded-[36px] overflow-y-auto overflow-x-hidden shadow-2xl flex flex-col font-sans transition-all duration-500`}
+      className={`relative w-full ${className} overflow-y-auto overflow-x-hidden shadow-2xl flex flex-col font-sans transition-all duration-500`}
       style={bgStyle}
     >
       {/* Background Decorative Pattern (only for standard presets) */}

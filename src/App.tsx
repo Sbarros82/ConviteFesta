@@ -608,20 +608,21 @@ export default function App() {
 
     return (
       <div 
-        className="min-h-screen bg-slate-950 flex justify-center items-center p-0 sm:p-4 overflow-x-hidden" 
+        className="min-h-screen min-h-[100dvh] bg-slate-950 flex justify-center items-center p-0 sm:p-4 overflow-x-hidden" 
         id="public-invite-container"
       >
         {/* Background glow matching invitation theme to look visually professional on desktop */}
         <div className="hidden lg:block absolute inset-0 bg-gradient-radial from-amber-500/5 to-transparent blur-3xl pointer-events-none" />
 
         {/* centering wrapper looking like mobile device mockup */}
-        <div className="w-full max-w-md bg-slate-950/40 rounded-none sm:rounded-[42px] p-0 shadow-2xl border-0 sm:border border-white/5 relative">
+        <div className="w-full max-w-md h-[100dvh] sm:h-[740px] sm:max-h-[90vh] bg-slate-950/40 rounded-none sm:rounded-[42px] p-0 shadow-2xl border-0 sm:border border-white/5 relative flex flex-col overflow-hidden">
           <PhonePreview 
             invitation={publicInvitation} 
             isPreviewMode={false} 
             onGuestConfirmed={async () => {
               // Refresh is automatic inside the component state
             }}
+            className="h-full rounded-none sm:rounded-[36px]"
           />
         </div>
       </div>
