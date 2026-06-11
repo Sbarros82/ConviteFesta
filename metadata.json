@@ -1,0 +1,6 @@
+{
+  "name": "ConvitaFesta",
+  "description": "Gerador de convites de aniversário interativos com IA ou configuração passo a passo, incluindo upload de fotos, música do Youtube, links de GPS e sugestão inteligente de presentes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
