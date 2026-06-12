@@ -173,6 +173,7 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
   const ytVideoId = getYouTubeId(invitation.musica_url);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isAudioLoading, setIsAudioLoading] = useState(true);
+  const [hasOpened, setHasOpened] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // RSVP Form state
@@ -304,6 +305,83 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
       className={`relative w-full ${className} overflow-y-auto overflow-x-hidden shadow-2xl flex flex-col ${fontClass} transition-all duration-500`}
       style={bgStyle}
     >
+      {/* Interactive Welcoming Cover Screen (Required for Autoplay and gorgeous UX) */}
+      <AnimatePresence>
+        {!isPreviewMode && !hasOpened && (
+          <motion.div
+            initial={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95, y: -20 }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+            className="absolute inset-0 z-50 flex flex-col justify-between items-center p-6 text-white text-center"
+          >
+            {/* Background pattern matching the theme inside the cover too */}
+            {!isCustomBg && (
+              <div 
+                className={`absolute inset-0 bg-gradient-to-b ${activePreset.bgColor}`}
+                style={{ 
+                  backgroundImage: activePreset.bgDecorativePattern ? activePreset.bgDecorativePattern : undefined,
+                  backgroundBlendMode: "overlay",
+                  opacity: 0.98
+                }}
+              />
+            )}
+            {isCustomBg && (
+              <div 
+                className="absolute inset-0 bg-cover bg-center"
+                style={{ backgroundImage: `url(${invitation.theme_id})` }}
+              />
+            )}
+            {/* Overlay Dim */}
+            <div className="absolute inset-0 bg-black/60 z-0 pointer-events-none" />
+
+            <div className="relative z-10 w-full flex flex-col items-center justify-center flex-grow gap-6 sm:gap-8 my-auto">
+              {/* Event Badge / Icon */}
+              <div className="bg-amber-400/20 text-amber-300 backdrop-blur-md px-4 py-1.5 rounded-full text-[10px] font-bold border border-amber-400/30 tracking-widest uppercase animate-pulse">
+                ✨ Você recebeu um convite especial! ✨
+              </div>
+
+              {/* Envelope Animation */}
+              <div className="relative w-28 h-28 flex items-center justify-center origin-center">
+                <div className="absolute inset-0 bg-amber-400/25 rounded-full blur-2xl animate-ping" />
+                <div className="relative bg-gradient-to-tr from-amber-400 via-amber-500 to-rose-400 w-24 h-24 rounded-full flex items-center justify-center border-2 border-white/40 shadow-2xl">
+                  <span className="text-4xl animate-bounce">💌</span>
+                </div>
+              </div>
+
+              {/* Title / Celebration info */}
+              <div className="space-y-2.5 px-2">
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight drop-shadow-lg text-white">
+                  {invitation.nome_crianca || "Celebrante Especial"}
+                </h2>
+                <p className="text-xs sm:text-sm font-semibold tracking-wide text-amber-100 uppercase bg-white/5 border border-white/10 px-3.5 py-1 rounded-full w-fit mx-auto">
+                  {customizer.titulo_evento || (customizer.event_type === "casamento" ? "Nosso Casamento" : customizer.event_type === "cha_bebe" ? "Nosso Chá de Bebê" : "Convite de Aniversário")}
+                </p>
+              </div>
+
+              {/* Open Button */}
+              <button
+                type="button"
+                id="open-invitation-btn"
+                onClick={() => {
+                  setHasOpened(true);
+                  if (ytVideoId) {
+                    setIsPlaying(true);
+                  }
+                }}
+                className="w-full max-w-[210px] py-3.5 px-6 bg-amber-400 hover:bg-amber-500 text-slate-950 font-extrabold text-xs sm:text-sm rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2.5 hover:scale-105 active:scale-95 transition-all shadow-xl shadow-amber-400/20 cursor-pointer animate-pulse"
+              >
+                <span>Abrir Convite</span>
+                <span className="text-base">✨</span>
+              </button>
+            </div>
+
+            {/* Subtle Footer */}
+            <div className="relative z-10 text-[9px] text-zinc-500 font-mono tracking-widest pb-1">
+              CONVITAFESTA • 2026
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Background Decorative Pattern (only for standard presets) */}
       {!isCustomBg && (
         <div 
