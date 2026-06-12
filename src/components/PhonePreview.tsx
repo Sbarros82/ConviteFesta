@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Invitation, GiftSuggestion } from "../types";
 import { PRESET_THEMES } from "../themes";
 import { supabase } from "../lib/supabase";
-import { MapPin, Calendar, Clock, Gift, Music2, Music, CheckCircle, HelpCircle, XCircle, Users, Share2, Volume2, VolumeX, Sparkles } from "lucide-react";
+import { MapPin, Calendar, Clock, Gift, Music2, Music, CheckCircle, HelpCircle, XCircle, Users, Share2, Volume2, VolumeX, Sparkles, Copy, ExternalLink, Check } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface PhonePreviewProps {
@@ -89,6 +89,79 @@ export function parseDicasPresentes(dicasRaw: string | undefined): { gifts: Gift
   return { gifts, customizer };
 }
 
+export const GIFT_LABELS = {
+  aniversario: {
+    tabTitle: "Sugestão e Tamanhos para Presentes",
+    description: "Indicar as numerações de roupas e calçados facilita enormemente a vida dos convidados! Deixe as sugestões preenchidas abaixo para aparecer no convite interativo:",
+    shirt: "Camisa",
+    shirtPlaceholder: "Ex: 6 anos, M, G",
+    pants: "Calça",
+    pantsPlaceholder: "Ex: 8 anos, 10, M",
+    shoes: "Sapato",
+    shoesPlaceholder: "Ex: 28, 30, 32",
+    toys: "Brinquedos preferidos:",
+    toysPlaceholder: "Ex: Lego, heróis, dinossauros, carrinhos de controle, pintura e massinhas de modelar.",
+    drawerHeader: "Dicas de Presentes",
+    drawerSub: "Caso deseje presentear o aniversariante, seguem os tamanhos recomendados e preferências de itens:"
+  },
+  casamento: {
+    tabTitle: "Lista de Presentes e Contribuições",
+    description: "Facilite para que os convidados saibam onde encontrar a lista de presentes de casamento ou como enviar uma contribuição para o casal (Pix):",
+    shirt: "Chave PIX",
+    shirtPlaceholder: "Ex: pix@casal.com ou (11) 99999-9999",
+    pants: "Instituição / Banco",
+    pantsPlaceholder: "Ex: Nubank - Alice & Bernardo",
+    shoes: "Link da Lista",
+    shoesPlaceholder: "Ex: www.ponto-frio.com/noiva/alice-bernardo",
+    toys: "Mensagem ou Detalhes da Lista / Enxoval:",
+    toysPlaceholder: "Ex: Caso prefira nos presentear de outra forma, ficaremos imensamente gratos com qualquer contribuição para nossa lua de mel!",
+    drawerHeader: "Lista de Presentes",
+    drawerSub: "Caso deseje presentear os noivos, veja as opções de contribuição e lista de casamento abaixo:"
+  },
+  cha_bebe: {
+    tabTitle: "Dicas de Presente para o Bebê",
+    description: "Indique as marcas de fraldas de sua preferência ou os mimos que o bebê está precisando para montar o enxoval perfeito:",
+    shirt: "Fralda",
+    shirtPlaceholder: "Ex: M e G (Huggies ou Pampers)",
+    pants: "Roupas e Enxoval",
+    pantsPlaceholder: "Ex: Macacões tamanho G, bodies",
+    shoes: "PIX Fralda",
+    shoesPlaceholder: "Ex: pix@bebebernardo.com",
+    toys: "Itens de Higiene e Brinquedos Adicionais:",
+    toysPlaceholder: "Ex: Pomada contra assaduras, lenço umedecido, chocalho, mordedores infantis ou mantas.",
+    drawerHeader: "Lista de Chá de Bebê",
+    drawerSub: "Caso deseje presentear o bebê, confira as preferências adicionadas para o enxoval:"
+  },
+  confraternizacao: {
+    tabTitle: "Indicações de Contribuição e Itens",
+    description: "Para confraternizações, churrascos ou eventos com amigos, indique o que cada convidado pode levar ou as dicas de comemoração:",
+    shirt: "Comida/Doce",
+    shirtPlaceholder: "Ex: Prato de salgado / petisco ou doce",
+    pants: "Bebida sugerida",
+    pantsPlaceholder: "Ex: Cerveja, refrigerante ou suco",
+    shoes: "Regras / Amigo Secreto",
+    shoesPlaceholder: "Ex: R$ 30,00 a R$ 50,00",
+    toys: "Instruções Adicionais para a Festa:",
+    toysPlaceholder: "Ex: Teremos piscina liberada, tragam traje de banho e muita animação! Bebidas extras por conta de cada um.",
+    drawerHeader: "Dicas de Contribuição",
+    drawerSub: "Para organizarmos a nossa confraternização, seguem as sugestões e itens:"
+  },
+  outro: {
+    tabTitle: "Dicas de Presentes & Sugestões",
+    description: "Customize as dicas de presente e referências ideais para o seu evento personalizado:",
+    shirt: "Sugestão 1",
+    shirtPlaceholder: "Ex: Tamanho M de Camiseta",
+    pants: "Sugestão 2",
+    pantsPlaceholder: "Ex: Chave Pix para vaquinha",
+    shoes: "Sugestão 3",
+    shoesPlaceholder: "Ex: Traje Esporte Fino",
+    toys: "Dicas Gerais e Mensagem aos Convidados:",
+    toysPlaceholder: "Ex: Sua presença é o nosso maior presente! Mas caso deseje nos presentear com alguma lembrança, preparamos estas sugestões.",
+    drawerHeader: "Dicas do Evento",
+    drawerSub: "Para facilitar o planejamento de todos os convidados, confira as seguintes dicas:"
+  }
+};
+
 export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirmed, className = "h-[580px]" }: PhonePreviewProps) {
   // Parse themes
   const activePreset = PRESET_THEMES.find(t => t.id === invitation.theme_id) || PRESET_THEMES[0];
@@ -113,6 +186,7 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
 
   // Gifts overlay state
   const [giftsOpen, setGiftsOpen] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Countdown timer
   const [timeLeft, setTimeLeft] = useState({ dias: 0, horas: 0, minutos: 0, segundos: 0 });
@@ -449,53 +523,113 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
 
       {/* Gifts Drawer/Modal Overlay */}
       <AnimatePresence>
-        {giftsOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-slate-950/95 z-30 p-6 flex flex-col justify-center text-white"
-          >
-            <h3 className="text-xl font-bold text-amber-400 flex items-center gap-2 mb-4 text-center justify-center border-b border-white/10 pb-2">
-              <Gift className="w-5 h-5" />
-              <span>Dicas de Presentes</span>
-            </h3>
+        {giftsOpen && (() => {
+          const eventType = customizer.event_type || "aniversario";
+          const labels = GIFT_LABELS[eventType] || GIFT_LABELS.aniversario;
+          const userLabelName = invitation.nome_crianca || "o organizador";
 
-            <p className="text-xs text-stone-300 text-center mb-6 leading-relaxed">
-              Caso deseje presentear {invitation.nome_crianca || "o organizador"}, seguem os tamanhos recomendados e preferências de itens:
-            </p>
-
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center">
-                <span className="text-[10px] text-white/55 block mb-1">Camisa</span>
-                <span className="text-sm font-extrabold text-white">{gifts.camisa || "N/A"}</span>
-              </div>
-              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center">
-                <span className="text-[10px] text-white/55 block mb-1">Calça</span>
-                <span className="text-sm font-extrabold text-white">{gifts.calca || "N/A"}</span>
-              </div>
-              <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center">
-                <span className="text-[10px] text-white/55 block mb-1">Calçado</span>
-                <span className="text-sm font-extrabold text-white">{gifts.sapato || "N/A"}</span>
-              </div>
-            </div>
-
-            <div className="bg-white/5 rounded-xl p-4 border border-white/10 mb-6">
-              <span className="text-[10px] text-white/55 font-semibold uppercase tracking-wider block mb-1.5">Brinquedos preferidos:</span>
-              <p className="text-xs text-white/90 leading-relaxed font-medium">
-                {gifts.brinquedos || "Lego, super-heróis, dinossauros, livros infantis."}
-              </p>
-            </div>
-
-            <button 
-              id="close-gifts-btn"
-              onClick={() => setGiftsOpen(false)}
-              className="mt-2 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold uppercase transition-all"
+          return (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/95 z-30 p-6 flex flex-col justify-center text-white"
             >
-              Fechar Dicas
-            </button>
-          </motion.div>
-        )}
+              <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2 mb-3 text-center justify-center border-b border-white/10 pb-2">
+                <Gift className="w-4.5 h-4.5" />
+                <span>{labels.drawerHeader}</span>
+              </h3>
+
+              <p className="text-[11px] text-stone-300 text-center mb-4 leading-relaxed">
+                {labels.drawerSub.replace("o aniversariante", userLabelName).replace("o bebê", userLabelName).replace("os noivos", userLabelName)}
+              </p>
+
+              {/* Suggestions Grid or Custom layout depending on eventType */}
+              {eventType === "aniversario" ? (
+                <div className="grid grid-cols-3 gap-2.5 mb-4">
+                  <div className="bg-white/5 rounded-xl p-2.5 border border-white/10 text-center">
+                    <span className="text-[9px] text-white/55 block mb-0.5">{labels.shirt}</span>
+                    <span className="text-xs font-extrabold text-white">{gifts.camisa || "N/A"}</span>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-2.5 border border-white/10 text-center">
+                    <span className="text-[9px] text-white/55 block mb-0.5">{labels.pants}</span>
+                    <span className="text-xs font-extrabold text-white">{gifts.calca || "N/A"}</span>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-2.5 border border-white/10 text-center">
+                    <span className="text-[9px] text-white/55 block mb-0.5">{labels.shoes}</span>
+                    <span className="text-xs font-extrabold text-white">{gifts.sapato || "N/A"}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2 mb-4 overflow-y-auto max-h-[180px] pr-1">
+                  {[
+                    { label: labels.shirt, value: gifts.camisa, key: "camisa" },
+                    { label: labels.pants, value: gifts.calca, key: "calca" },
+                    { label: labels.shoes, value: gifts.sapato, key: "sapato" }
+                  ].map((item, idx) => {
+                    if (!item.value) return null;
+                    const isUrl = item.value.toLowerCase().startsWith("http") || item.value.toLowerCase().startsWith("www.");
+
+                    return (
+                      <div key={idx} className="bg-white/5 rounded-xl p-2.5 border border-white/10 flex items-center justify-between gap-2.5">
+                        <div className="flex-1 min-w-0 text-left">
+                          <span className="text-[9px] text-white/55 block mb-0.5">{item.label}</span>
+                          <span className="text-xs font-semibold text-stone-100 block truncate">{item.value}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isUrl ? (
+                            <a
+                              href={item.value.startsWith("http") ? item.value : `https://${item.value}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-1.5 bg-amber-400 hover:bg-amber-500 rounded-lg text-slate-950 transition-colors"
+                              title="Acessar Link"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(item.value || "");
+                                setCopiedField(item.key);
+                                setTimeout(() => setCopiedField(null), 1500);
+                              }}
+                              className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-colors"
+                              title="Copiar"
+                            >
+                              {copiedField === item.key ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="bg-white/5 rounded-xl p-3 border border-white/10 mb-4 text-left">
+                <span className="text-[9px] text-white/55 font-semibold uppercase tracking-wider block mb-1">{labels.toys}</span>
+                <p className="text-xs text-white/90 leading-relaxed font-medium whitespace-pre-line max-h-[100px] overflow-y-auto">
+                  {gifts.brinquedos || "Nenhuma dica ou instrução adicional informada."}
+                </p>
+              </div>
+
+              <button 
+                id="close-gifts-btn"
+                onClick={() => setGiftsOpen(false)}
+                className="py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-[11px] font-semibold uppercase transition-all"
+              >
+                Fechar Dicas
+              </button>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* RSVP Drawer/Modal Overlay */}

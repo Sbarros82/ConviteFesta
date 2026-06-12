@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Invitation, Guest, GiftSuggestion } from "./types";
 import { PRESET_THEMES } from "./themes";
-import { PhonePreview, getYouTubeId } from "./components/PhonePreview";
+import { PhonePreview, getYouTubeId, GIFT_LABELS } from "./components/PhonePreview";
 import { 
   getOrCreateProfile, 
   getInvitationsByUser, 
@@ -1835,87 +1835,90 @@ function generateFallbackAIClient(prompt: string) {
               )}
 
               {/* TAB CONTENT 4: DICAS DE PRESENTE */}
-              {activeTab === "presentes" && (
-                <div className="space-y-4 animate-fadeIn">
-                  <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <span className="text-amber-400">4</span>
-                    <span>Sugestão e Tamanhos para Presentes</span>
-                  </h4>
+              {activeTab === "presentes" && (() => {
+                const labels = GIFT_LABELS[eventType] || GIFT_LABELS.aniversario;
+                return (
+                  <div className="space-y-4 animate-fadeIn animate-duration-300">
+                    <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <span className="text-amber-400">4</span>
+                      <span>{labels.tabTitle}</span>
+                    </h4>
 
-                  <p className="text-xs text-slate-400 leading-relaxed mb-1">
-                    Indicar as numerações de roupas e calçados facilita enormemente a vida dos convidados! Deixe as sugestões preenchidas abaixo para aparecer no convite interativo:
-                  </p>
+                    <p className="text-xs text-slate-400 leading-relaxed mb-1">
+                      {labels.description}
+                    </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Tamanho de Camisa</label>
-                      <input 
-                        id="gift-shirt-input"
-                        type="text"
-                        placeholder="Ex: 6 anos, M, G"
-                        value={gifts.camisa}
-                        onChange={(e) => setGifts(prev => ({ ...prev, camisa: e.target.value }))}
-                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-wider">{labels.shirt}</label>
+                        <input 
+                          id="gift-shirt-input"
+                          type="text"
+                          placeholder={labels.shirtPlaceholder}
+                          value={gifts.camisa}
+                          onChange={(e) => setGifts(prev => ({ ...prev, camisa: e.target.value }))}
+                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-400 placeholder:text-slate-600 transition-colors"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-wider">{labels.pants}</label>
+                        <input 
+                          id="gift-pants-input"
+                          type="text"
+                          placeholder={labels.pantsPlaceholder}
+                          value={gifts.calca}
+                          onChange={(e) => setGifts(prev => ({ ...prev, calca: e.target.value }))}
+                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-400 placeholder:text-slate-600 transition-colors"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-wider">{labels.shoes}</label>
+                        <input 
+                          id="gift-shoes-input"
+                          type="text"
+                          placeholder={labels.shoesPlaceholder}
+                          value={gifts.sapato}
+                          onChange={(e) => setGifts(prev => ({ ...prev, sapato: e.target.value }))}
+                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-400 placeholder:text-slate-600 transition-colors"
+                        />
+                      </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Tamanho de Calça / Bermuda</label>
-                      <input 
-                        id="gift-pants-input"
-                        type="text"
-                        placeholder="Ex: 8 anos, 10, M"
-                        value={gifts.calca}
-                        onChange={(e) => setGifts(prev => ({ ...prev, calca: e.target.value }))}
-                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 tracking-wider">{labels.toys.replace(":", "")}</label>
+                      <textarea 
+                        id="gift-toys-input"
+                        rows={4}
+                        placeholder={labels.toysPlaceholder}
+                        value={gifts.brinquedos}
+                        onChange={(e) => setGifts(prev => ({ ...prev, brinquedos: e.target.value }))}
+                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-400 resize-none font-sans placeholder:text-slate-600 transition-colors"
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Numeração do Sapato</label>
-                      <input 
-                        id="gift-shoes-input"
-                        type="text"
-                        placeholder="Ex: 28, 30, 32"
-                        value={gifts.sapato}
-                        onChange={(e) => setGifts(prev => ({ ...prev, sapato: e.target.value }))}
-                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
-                      />
+                    <div className="flex justify-between pt-2">
+                      <button
+                        id="prev-step-4"
+                        onClick={() => setActiveTab("estilo")}
+                        className="px-5 py-3 bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold rounded-xl uppercase tracking-wider transition-all"
+                      >
+                        Voltar
+                      </button>
+                      
+                      <button
+                        id="next-step-4"
+                        onClick={() => setActiveTab("musica")}
+                        className="px-5 py-3 bg-amber-400 text-slate-950 text-xs font-bold rounded-xl uppercase tracking-wider flex items-center gap-1 hover:brightness-110 active:scale-95 transition-all w-fit"
+                      >
+                        <span>Prosseguir</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Tipos de Brinquedos e Interesses</label>
-                    <textarea 
-                      id="gift-toys-input"
-                      rows={4}
-                      placeholder="Ex: Lego, heróis, dinossauros, carrinhos de controle, pintura e massinhas de modelar."
-                      value={gifts.brinquedos}
-                      onChange={(e) => setGifts(prev => ({ ...prev, brinquedos: e.target.value }))}
-                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-400 resize-none font-sans"
-                    />
-                  </div>
-
-                  <div className="flex justify-between pt-2">
-                    <button
-                      id="prev-step-4"
-                      onClick={() => setActiveTab("estilo")}
-                      className="px-5 py-3 bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold rounded-xl uppercase tracking-wider transition-all"
-                    >
-                      Voltar
-                    </button>
-                    
-                    <button
-                      id="next-step-4"
-                      onClick={() => setActiveTab("musica")}
-                      className="px-5 py-3 bg-amber-400 text-slate-950 text-xs font-bold rounded-xl uppercase tracking-wider flex items-center gap-1 hover:brightness-110 active:scale-95 transition-all"
-                    >
-                      <span>Prosseguir</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* TAB CONTENT 5: MÚSICA E COMPARTILHAR */}
               {activeTab === "musica" && (
