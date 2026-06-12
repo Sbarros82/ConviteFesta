@@ -160,7 +160,7 @@ export default function App() {
         if (activeSession?.user) {
           setUserId(activeSession.user.id);
           setUserEmail(activeSession.user.email || "");
-          loadProfileAndInvitations(activeSession.user.id, activeSession.user.email || "");
+          loadProfileAndInvitations(activeSession.user.id, activeSession.user.email || "", true);
         } else {
           // Allow anonymous workspace use and load defaults
           setUserId(null);
@@ -180,7 +180,7 @@ export default function App() {
         if (activeSession?.user) {
           setUserId(activeSession.user.id);
           setUserEmail(activeSession.user.email || "");
-          loadProfileAndInvitations(activeSession.user.id, activeSession.user.email || "");
+          loadProfileAndInvitations(activeSession.user.id, activeSession.user.email || "", false);
         } else {
           setUserId(null);
           setInvitations([]);
@@ -218,7 +218,7 @@ export default function App() {
   }, [invitation.slug, invitation.id]);
 
   // Load profile and load invitations by safe methods
-  const loadProfileAndInvitations = async (uId: string, email: string) => {
+  const loadProfileAndInvitations = async (uId: string, email: string, autoLoadFirst: boolean = false) => {
     try {
       const pId = await getOrCreateProfile(email, userName || email.split("@")[0]);
       setUserId(pId);
@@ -226,7 +226,7 @@ export default function App() {
       const list = await getInvitationsByUser(pId);
       setInvitations(list);
       
-      if (list.length > 0) {
+      if (autoLoadFirst && list.length > 0) {
         // Load the most recent invitation if editing session
         loadInvitationIntoState(list[0]);
       }
@@ -240,7 +240,7 @@ export default function App() {
   // Keep old signature for compatibility with other triggers
   const initCreatorSession = async () => {
     if (userId && userEmail) {
-      await loadProfileAndInvitations(userId, userEmail);
+      await loadProfileAndInvitations(userId, userEmail, false);
     } else {
       setLoading(false);
     }
@@ -595,7 +595,7 @@ function generateFallbackAIClient(prompt: string) {
         .replace(/\s+/g, "-") + `-${data.idade || ""}-${random_id}`;
 
       setInvitation(prev => ({
-        ...prev,
+        theme_id: data.theme_id || "neutro",
         nome_crianca: data.nome_crianca || "",
         idade: data.idade || 5,
         data_evento: data.data_evento || prev.data_evento,
@@ -603,9 +603,12 @@ function generateFallbackAIClient(prompt: string) {
         local: data.local || "",
         endereco: data.endereco || "",
         mensagem: data.mensagem || "",
-        theme_id: data.theme_id || "neutro",
         gps_link: data.gps_link || "",
-        slug: formattedSlug
+        slug: formattedSlug,
+        exibir_foto: prev.exibir_foto ?? true,
+        telefone: prev.telefone || "",
+        foto_url: "",
+        musica_url: data.musica_url || ""
       }));
 
       // Set customizer fields
@@ -682,6 +685,10 @@ function generateFallbackAIClient(prompt: string) {
       brinquedos: "Lego, super-heróis, dinossauros"
     });
     setGuests([]);
+    setEventType("aniversario");
+    setTituloEvento("");
+    setFontFamily("font-sans");
+    setTextColor("");
     setActiveTab("celebrante");
     setActiveTabTop("editor");
   };
@@ -807,7 +814,7 @@ function generateFallbackAIClient(prompt: string) {
         if (data.session) {
           setNotification({ type: "success", message: "Seja bem-vindo de volta!" });
           setShowAuthModal(false);
-          await loadProfileAndInvitations(data.session.user.id, data.session.user.email || "");
+          await loadProfileAndInvitations(data.session.user.id, data.session.user.email || "", false);
           
           if (pendingSave) {
             setPendingSave(false);
