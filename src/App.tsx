@@ -9,7 +9,11 @@ import {
   getGuestsForInvite, 
   isSlugAvailable, 
   getInvitationBySlug,
-  supabase
+  supabase,
+  adminGetAllInvitations,
+  adminGetAllProfiles,
+  adminGetAllGuests,
+  adminDeleteInvitation
 } from "./lib/supabase";
 import { 
   Sparkles, 
@@ -34,7 +38,9 @@ import {
   Upload, 
   Layers, 
   ExternalLink,
-  Info
+  Info,
+  Shield,
+  RefreshCw
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -47,8 +53,8 @@ export default function App() {
   // Supabase Profile and Auth Session
   const [session, setSession] = useState<any>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [userName, setUserName] = useState("Sérgio");
-  const [userEmail, setUserEmail] = useState("sbarros1982@gmail.com");
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
 
   // Auth UI Modal States
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -75,7 +81,100 @@ export default function App() {
   const [fontFamily, setFontFamily] = useState<string>("font-sans");
   const [textColor, setTextColor] = useState<string>("");
 
-  const [activeTabTop, setActiveTabTop] = useState<"editor" | "confirmados" | "meus_convites">("editor");
+  // CEP Search State
+  const [cepValue, setCepValue] = useState("");
+  const [loadingCep, setLoadingCep] = useState(false);
+
+  const handleCepChange = (val: string) => {
+    const rawVal = val.replace(/\D/g, "").slice(0, 8);
+    if (rawVal.length > 5) {
+      setCepValue(`${rawVal.slice(0, 5)}-${rawVal.slice(5)}`);
+    } else {
+      setCepValue(rawVal);
+    }
+  };
+
+  const buscarCep = async () => {
+    const rawCep = cepValue.replace(/\D/g, "");
+    if (rawCep.length !== 8) {
+      setNotification({ type: "error", message: "Por favor, digite um CEP válido com 8 dígitos." });
+      return;
+    }
+    setLoadingCep(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${rawCep}/json/`);
+      const data = await response.json();
+      if (data.erro) {
+        setNotification({ type: "error", message: "CEP não encontrado. Verifique o número e tente novamente." });
+      } else {
+        const fullAddress = [
+          data.logradouro,
+          data.bairro,
+          data.localidade,
+          data.uf
+        ].filter(Boolean).join(", ");
+        
+        setInvitation(prev => ({ 
+          ...prev, 
+          endereco: fullAddress,
+          // Generate an automatic direct Google Maps query link as well
+          gps_link: `https://maps.google.com/?q=${encodeURIComponent(fullAddress + " " + (prev.local || ""))}`
+        }));
+        setNotification({ type: "success", message: "Endereço localizado e preenchido!" });
+      }
+    } catch (error) {
+      console.error(error);
+      setNotification({ type: "error", message: "Erro ao buscar o CEP. Verifique sua conexão." });
+    } finally {
+      setLoadingCep(false);
+    }
+  };
+
+  const [activeTabTop, setActiveTabTop] = useState<"editor" | "confirmados" | "meus_convites" | "admin">("editor");
+
+  // Admin Dashboard States (Exclusive for sbarros1982@gmail.com)
+  const [adminInvitations, setAdminInvitations] = useState<any[]>([]);
+  const [adminProfiles, setAdminProfiles] = useState<any[]>([]);
+  const [adminGuests, setAdminGuests] = useState<any[]>([]);
+  const [loadingAdmin, setLoadingAdmin] = useState(false);
+  const [adminSearchQuery, setAdminSearchQuery] = useState("");
+
+  const loadAdminData = async () => {
+    setLoadingAdmin(true);
+    try {
+      const [invites, profilesList, guestsList] = await Promise.all([
+        adminGetAllInvitations(),
+        adminGetAllProfiles(),
+        adminGetAllGuests()
+      ]);
+      setAdminInvitations(invites);
+      setAdminProfiles(profilesList);
+      setAdminGuests(guestsList);
+    } catch (err) {
+      console.error("Erro ao carregar painel de administrador:", err);
+      setNotification({ type: "error", message: "Erro ao sincronizar informações gerais dos convites." });
+    } finally {
+      setLoadingAdmin(false);
+    }
+  };
+
+  const handleAdminDelete = async (inviteId: string) => {
+    if (!window.confirm("Tem certeza que deseja apagar permanentemente este convite e os dados de confirmação correspondentes de forma irreversível?")) {
+      return;
+    }
+    try {
+      const success = await adminDeleteInvitation(inviteId);
+      if (success) {
+        setNotification({ type: "success", message: "Convite e RSVPs excluídos da base de dados com sucesso!" });
+        await loadAdminData();
+      } else {
+        setNotification({ type: "error", message: "Erro na exclusão do convite." });
+      }
+    } catch (err) {
+      console.error(err);
+      setNotification({ type: "error", message: "Erro de conexão ao remover convite." });
+    }
+  };
 
   // Currently editing invitation state
   const [invitation, setInvitation] = useState<Invitation>({
@@ -164,6 +263,8 @@ export default function App() {
         } else {
           // Allow anonymous workspace use and load defaults
           setUserId(null);
+          setUserEmail("");
+          setUserName("");
           // Set a generic random slug
           const random_id = Math.floor(1000 + Math.random() * 9000);
           setInvitation(prev => ({
@@ -183,6 +284,8 @@ export default function App() {
           loadProfileAndInvitations(activeSession.user.id, activeSession.user.email || "", false);
         } else {
           setUserId(null);
+          setUserEmail("");
+          setUserName("");
           setInvitations([]);
         }
       });
@@ -858,8 +961,13 @@ function generateFallbackAIClient(prompt: string) {
       await supabase.auth.signOut();
       localStorage.removeItem("convitafesta_user_id");
       setUserId(null);
+      setUserEmail("");
+      setUserName("");
       setSession(null);
       setInvitations([]);
+      if (activeTabTop === "admin") {
+        setActiveTabTop("editor");
+      }
       setNotification({ type: "info", message: "Você desconectou de sua conta." });
     } catch (err) {
       console.error(err);
@@ -1209,6 +1317,24 @@ function generateFallbackAIClient(prompt: string) {
               <Layers className="w-3.5 h-3.5" />
               <span>Meus Convites</span>
             </button>
+
+            {userEmail === "sbarros1982@gmail.com" && (
+              <button
+                id="top-admin-tab"
+                onClick={() => {
+                  setActiveTabTop("admin");
+                  loadAdminData();
+                }}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all ${
+                  activeTabTop === "admin" 
+                    ? "bg-red-500/15 text-red-300 border border-red-500/30 font-black" 
+                    : "text-red-400 hover:text-red-300 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10"
+                }`}
+              >
+                <Shield className="w-3.5 h-3.5 text-red-400 animate-pulse" />
+                <span className="font-bold">Painel Admin</span>
+              </button>
+            )}
 
             {/* Session Indicator */}
             {userId ? (
@@ -1564,6 +1690,44 @@ function generateFallbackAIClient(prompt: string) {
                       onChange={(e) => setInvitation(prev => ({ ...prev, local: e.target.value }))}
                       className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
                     />
+                  </div>
+
+                  <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-4 space-y-3">
+                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">🏢 Auto-preenchimento por CEP</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Inserir CEP</label>
+                        <input 
+                          id="cep-input"
+                          type="text"
+                          placeholder="Ex: 01311-200"
+                          value={cepValue}
+                          onChange={(e) => handleCepChange(e.target.value)}
+                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-400 text-center font-mono tracking-widest"
+                        />
+                      </div>
+                      <div className="sm:col-span-1">
+                        <button
+                          type="button"
+                          id="buscar-cep-btn"
+                          onClick={buscarCep}
+                          disabled={loadingCep}
+                          className="w-full py-3 h-[46px] bg-amber-400 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-500 text-slate-950 font-bold text-xs rounded-xl uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md shadow-amber-400/10 cursor-pointer"
+                        >
+                          {loadingCep ? (
+                            <>
+                              <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-950 border-t-transparent animate-spin" />
+                              <span className="text-[10px]">Buscando...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-xs">🔍</span>
+                              <span>Buscar CEP</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <div>
@@ -2353,6 +2517,211 @@ function generateFallbackAIClient(prompt: string) {
             )}
           </div>
           )
+        )}
+
+        {/* VIEW 4: ADMIN PORTAL DASHBOARD (sbarros1982@gmail.com exclusive) */}
+        {activeTabTop === "admin" && userEmail === "sbarros1982@gmail.com" && (
+          <div className="bg-slate-900/60 border border-white/5 rounded-3xl p-5 sm:p-6 space-y-6 animate-fadeIn" id="admin-panel">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-white/5 pb-5">
+              <div>
+                <h3 className="text-xl font-extrabold text-white flex items-center gap-2">
+                  <Shield className="w-5.5 h-5.5 text-red-400" />
+                  <span>Painel Administrativo Geral</span>
+                </h3>
+                <span className="text-xs text-slate-400 block mt-0.5 font-medium">Visão de todas as contas e monitoramento geral de convites gerados</span>
+              </div>
+              <button
+                type="button"
+                id="admin-reload-btn"
+                onClick={loadAdminData}
+                disabled={loadingAdmin}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-xs font-bold rounded-lg uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingAdmin ? 'animate-spin' : ''}`} />
+                <span>Atualizar Estatísticas</span>
+              </button>
+            </div>
+
+            {loadingAdmin ? (
+              <div className="py-24 text-center text-slate-400 text-xs font-semibold" id="admin-loading">
+                <div className="w-8 h-8 rounded-full border-2 border-red-500 border-t-transparent animate-spin mx-auto mb-3" />
+                <span>Carregando dados mestre de todas as contas...</span>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Statistics Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Total de Contas</span>
+                    <span className="text-2xl font-black text-slate-100 font-mono">
+                      {adminProfiles.length}
+                    </span>
+                  </div>
+                  <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Convites Criados</span>
+                    <span className="text-2xl font-black text-amber-400 font-mono">
+                      {adminInvitations.length}
+                    </span>
+                  </div>
+                  <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Confirmados (RSVP)</span>
+                    <span className="text-2xl font-black text-emerald-400 font-mono">
+                      {adminGuests.length}
+                    </span>
+                  </div>
+                  <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 space-y-1">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Soma de Visualizações</span>
+                    <span className="text-2xl font-black text-rose-400 font-mono">
+                      {adminInvitations.reduce((acc, inv) => acc + (inv.visualizacoes || 0), 0)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Sub-header Filter tab */}
+                <div className="flex bg-slate-950/60 p-3 rounded-2xl border border-white/5 items-center gap-3">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wide shrink-0 hidden sm:inline ml-1">Filtro Rápido:</span>
+                  <input
+                    type="text"
+                    placeholder="Filtrar por nome de aniversariante, tema, email de anfitrião ou slug..."
+                    value={adminSearchQuery}
+                    onChange={(e) => setAdminSearchQuery(e.target.value)}
+                    className="flex-1 bg-slate-900 border border-white/5 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-red-500"
+                  />
+                  {adminSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setAdminSearchQuery("")}
+                      className="text-[10px] font-bold text-red-400 hover:text-white transition-colors uppercase cursor-pointer"
+                    >
+                      Limpar
+                    </button>
+                  )}
+                </div>
+
+                {/* Table of Generated Invitations */}
+                <div className="bg-slate-950/70 rounded-2xl border border-white/5 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-white/5 bg-slate-900/40 text-slate-400 font-bold uppercase tracking-wider">
+                          <th className="p-4">Anfitrião / Conta</th>
+                          <th className="p-4">Aniversariante / Tema</th>
+                          <th className="p-4">Data & Horário</th>
+                          <th className="p-4">Local da Festa</th>
+                          <th className="p-4 text-center">👁️ Visualizações</th>
+                          <th className="p-4 text-center">👥 RSVPs</th>
+                          <th className="p-4 text-right">Ações Gerais</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 text-slate-300">
+                        {(() => {
+                          const query = adminSearchQuery.trim().toLowerCase();
+                          const filteredInvites = adminInvitations.filter(inv => {
+                            if (!query) return true;
+                            const profileEmail = inv.profiles?.email || "";
+                            const profileName = inv.profiles?.nome || "";
+                            return (
+                              inv.nome_crianca?.toLowerCase().includes(query) ||
+                              inv.theme_id?.toLowerCase().includes(query) ||
+                              inv.slug?.toLowerCase().includes(query) ||
+                              inv.local?.toLowerCase().includes(query) ||
+                              profileEmail.toLowerCase().includes(query) ||
+                              profileName.toLowerCase().includes(query)
+                            );
+                          });
+
+                          if (filteredInvites.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={7} className="p-8 text-center text-slate-500 font-medium">
+                                  Nenhum convite correspondente encontrado para o filtro digitado.
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return filteredInvites.map((inv) => {
+                            const pName = inv.profiles?.nome || "Anônimo";
+                            const pEmail = inv.profiles?.email || "cadastro-antigo@convite.com";
+                            const pTheme = PRESET_THEMES.find(t => t.id === inv.theme_id) || PRESET_THEMES[0];
+                            const guestsCount = adminGuests.filter(g => g.invite_id === inv.id).length;
+                            const confirmedCount = adminGuests.filter(g => g.invite_id === inv.id && g.status === "confirmado").length;
+
+                            return (
+                              <tr key={inv.id} className="hover:bg-slate-900/30 transition-colors">
+                                <td className="p-4">
+                                  <div className="font-bold text-slate-200">{pName}</div>
+                                  <div className="text-[10px] text-slate-500 font-mono tracking-tight">{pEmail}</div>
+                                </td>
+                                <td className="p-4">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-base">{inv.foto_url ? "🎈" : pTheme.emoji}</span>
+                                    <div>
+                                      <span className="font-bold text-slate-100">{inv.nome_crianca}</span>
+                                      <span className="text-[10px] text-stone-400 block">Completa {inv.idade} anos</span>
+                                    </div>
+                                  </div>
+                                  <span className="inline-block mt-1 text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-slate-400">
+                                    {inv.theme_id}
+                                  </span>
+                                </td>
+                                <td className="p-4 font-medium">
+                                  <div className="text-slate-200">{inv.data_evento}</div>
+                                  <div className="text-[10px] text-slate-400">{inv.horario}h</div>
+                                </td>
+                                <td className="p-4">
+                                  <div className="font-bold truncate max-w-[140px] text-slate-300">{inv.local || "Não informado"}</div>
+                                  <div className="text-[10px] text-slate-500 truncate max-w-[140px]" title={inv.endereco}>{inv.endereco || "N/A"}</div>
+                                </td>
+                                <td className="p-4 text-center font-bold text-slate-100 font-mono">
+                                  {inv.visualizacoes || 0}
+                                </td>
+                                <td className="p-4 text-center">
+                                  <div className="font-bold text-emerald-400 font-mono">{confirmedCount} confirmados</div>
+                                  <div className="text-[10px] text-slate-500 font-mono">{guestsCount} no total</div>
+                                </td>
+                                <td className="p-4 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        loadInvitationIntoState(inv);
+                                        setActiveTabTop("editor");
+                                        setNotification({ type: "info", message: `Trabalhando no convite de ${inv.nome_crianca}` });
+                                      }}
+                                      className="py-1 px-2.5 bg-white/5 hover:bg-white/10 text-slate-200 rounded text-[10px] font-bold uppercase border border-white/5 cursor-pointer"
+                                    >
+                                      Editar
+                                    </button>
+                                    <a
+                                      href={`/c/${inv.slug}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="p-1 px-2 bg-amber-400/10 hover:bg-amber-400 text-amber-300 hover:text-slate-950 rounded border border-amber-400/20 text-[10px] font-bold transition-all inline-flex items-center gap-1"
+                                    >
+                                      Ver
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAdminDelete(inv.id)}
+                                      className="p-1.5 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white rounded border border-red-500/20 transition-all cursor-pointer"
+                                      title="Apagar Convite"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
       </main>

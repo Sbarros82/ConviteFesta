@@ -239,3 +239,80 @@ export async function isSlugAvailable(slug: string, currentInviteId?: string): P
     return true;
   }
 }
+
+// ADMIN FUNCTIONS FOR sbarros1982@gmail.com
+export async function adminGetAllInvitations(): Promise<any[]> {
+  try {
+    // Attempt with profile relationship join
+    const { data, error } = await supabase
+      .from("invitations")
+      .select(`
+        *,
+        profiles (
+          id,
+          nome,
+          email,
+          plano
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.warn("Could not fetch with profile join, falling back to basic selection:", error);
+      const { data: dataFallback, error: errorFallback } = await supabase
+        .from("invitations")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (errorFallback) throw errorFallback;
+      return dataFallback || [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error("Exceção adminGetAllInvitations:", err);
+    return [];
+  }
+}
+
+export async function adminGetAllProfiles(): Promise<any[]> {
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*");
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error("Exceção adminGetAllProfiles:", err);
+    return [];
+  }
+}
+
+export async function adminGetAllGuests(): Promise<any[]> {
+  try {
+    const { data, error } = await supabase
+      .from("guests")
+      .select("*");
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error("Exceção adminGetAllGuests:", err);
+    return [];
+  }
+}
+
+export async function adminDeleteInvitation(inviteId: string): Promise<boolean> {
+  try {
+    // Delete associated guests first if foreign key constraints exist
+    await supabase.from("guests").delete().eq("invite_id", inviteId);
+    
+    const { error } = await supabase
+      .from("invitations")
+      .delete()
+      .eq("id", inviteId);
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error("Exceção adminDeleteInvitation:", err);
+    return false;
+  }
+}
+

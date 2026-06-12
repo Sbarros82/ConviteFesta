@@ -189,6 +189,9 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
   const [giftsOpen, setGiftsOpen] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
+  // Map toggle state
+  const [showMap, setShowMap] = useState(false);
+
   // Countdown timer
   const [timeLeft, setTimeLeft] = useState({ dias: 0, horas: 0, minutos: 0, segundos: 0 });
   const [isEventOver, setIsEventOver] = useState(false);
@@ -439,9 +442,9 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
         <div className="flex flex-col items-center mt-2 flex-grow">
           
           {invitation.exibir_foto !== false && (
-            <div className="relative mb-4 group">
+            <div className="relative mb-3.5 group">
               <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-rose-400 rounded-full blur-md opacity-75 group-hover:opacity-100 transition duration-300" />
-              <div className="relative w-28 h-28 rounded-full border-4 border-white overflow-hidden shadow-lg bg-slate-800">
+              <div className="relative w-24 h-24 rounded-full border-4 border-white overflow-hidden shadow-lg bg-slate-800 transition-transform duration-300 group-hover:scale-105">
                 {invitation.foto_url ? (
                   <img 
                     src={invitation.foto_url} 
@@ -459,20 +462,20 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
           )}
 
           <h1 
-            className="text-3xl font-extrabold tracking-tight drop-shadow-md mb-1"
+            className="text-2xl sm:text-3xl font-extrabold tracking-tight drop-shadow-md mb-1"
             style={textColorStyle}
           >
             {customizer.titulo_evento || invitation.nome_crianca || "Nome do Evento"}
           </h1>
           
           {((customizer.event_type === "aniversario" || !customizer.event_type) && invitation.idade > 0) && (
-            <div className="bg-amber-400 text-slate-950 font-bold px-3 py-1 rounded-full text-xs uppercase tracking-wider shadow-md mb-4 self-center animate-bounce">
+            <div className="bg-amber-400 text-slate-950 font-bold px-3 py-1 rounded-full text-xs uppercase tracking-wider shadow-md mb-3.5 self-center animate-bounce">
               Completa {invitation.idade || "0"} Anos! 🎉
             </div>
           )}
 
           {customizer.event_type && customizer.event_type !== "aniversario" && (
-            <div className="bg-amber-400 text-slate-950 font-bold px-3 py-1 rounded-full text-xs uppercase tracking-wider shadow-md mb-4 self-center animate-bounce">
+            <div className="bg-amber-400 text-slate-950 font-bold px-3 py-1 rounded-full text-xs uppercase tracking-wider shadow-md mb-3.5 self-center animate-bounce">
               {customizer.event_type === "casamento" ? "Vamos Casar! 💍" :
                customizer.event_type === "cha_bebe" ? "Chá de Bebê! 🍼" :
                customizer.event_type === "confraternizacao" ? "Confraternização! 🍻" :
@@ -481,75 +484,88 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
           )}
 
           <p 
-            className="text-sm border-l-2 border-white/30 pl-3 italic drop-shadow max-w-xs mx-auto mb-5 leading-relaxed"
+            className="text-sm border-l-2 border-white/30 pl-3 italic drop-shadow max-w-xs mx-auto mb-4 leading-relaxed"
             style={customizer.text_color ? { color: customizer.text_color, borderColor: customizer.text_color } : {}}
           >
             "{invitation.mensagem || "Você está convidado para curtir essa super festa comigo! Não perca!"}"
           </p>
 
-          {/* Countdown timer */}
-          <div className="bg-black/45 backdrop-blur-md rounded-2xl p-3 border border-white/10 w-full mb-5 text-center shadow-lg">
-            {!isEventOver ? (
-              <div>
-                <p className="text-[10px] uppercase font-bold tracking-widest text-white/70 mb-1.5 flex items-center justify-center gap-1">
-                  ⏳ Falta muito pouco para começar:
-                </p>
-                <div className="grid grid-cols-4 gap-1 text-white">
-                  <div className="flex flex-col bg-white/10 rounded-lg py-1 px-1.5">
-                    <span className="text-sm font-bold">{timeLeft.dias}</span>
-                    <span className="text-[8px] text-white/80">Dias</span>
-                  </div>
-                  <div className="flex flex-col bg-white/10 rounded-lg py-1 px-1.5">
-                    <span className="text-sm font-bold">{timeLeft.horas}</span>
-                    <span className="text-[8px] text-white/80">Horas</span>
-                  </div>
-                  <div className="flex flex-col bg-white/10 rounded-lg py-1 px-1.5">
-                    <span className="text-sm font-bold">{timeLeft.minutos}</span>
-                    <span className="text-[8px] text-white/80">Min</span>
-                  </div>
-                  <div className="flex flex-col bg-white/10 rounded-lg py-1 px-1.5">
-                    <span className="text-sm font-bold">{timeLeft.segundos}</span>
-                    <span className="text-[8px] text-white/80">Seg</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs font-semibold text-amber-300">🎉 O grande dia chegou! Te espero lá!</p>
-            )}
-          </div>
+          {/* Sleek Floating Countdown timer */}
+          {!isEventOver ? (
+            <div className="bg-black/50 backdrop-blur-md rounded-full px-4 py-2 border border-white/10 w-fit mb-4 text-center shadow-lg flex items-center justify-center gap-2 mx-auto animate-pulse">
+              <span className="text-[10px] font-bold text-amber-300 tracking-wider uppercase flex items-center gap-1">⏰ Falta pouco:</span>
+              <span className="text-xs font-mono font-extrabold tracking-wide text-white">
+                {timeLeft.dias}d {timeLeft.horas}h {timeLeft.minutos}m {timeLeft.segundos}s
+              </span>
+            </div>
+          ) : (
+            <div className="bg-emerald-500/15 backdrop-blur-md rounded-full px-4 py-2 border border-emerald-500/25 w-fit mb-4 text-center shadow-lg flex items-center justify-center gap-1.5 mx-auto">
+              <span className="text-xs font-bold text-emerald-300 tracking-wider">🎉 O grande dia chegou! Te espero lá!</span>
+            </div>
+          )}
 
           {/* Event details card */}
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/15 w-full mb-6 text-left shadow-lg">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 mr-0.5 bg-white/15 rounded-xl">
-                <Calendar className="w-5 h-5 text-amber-300" />
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/15 w-full mb-5 text-left shadow-lg">
+            {/* Date and Time horizontal split */}
+            <div className="grid grid-cols-2 gap-3 mb-3 border-b border-white/5 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-white/10 rounded-lg shrink-0">
+                  <Calendar className="w-4 h-4 text-amber-300" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[9px] text-white/50 block font-bold uppercase tracking-wider">Data</span>
+                  <span className="text-xs font-bold block truncate">{invitation.data_evento ? formatDatePortuguese(invitation.data_evento).replace(/-feira/i, "") : "A definir"}</span>
+                </div>
               </div>
-              <div>
-                <div className="text-[10px] text-white/70 font-semibold uppercase tracking-wider">Data do Evento</div>
-                <div className="text-xs font-bold">{invitation.data_evento ? formatDatePortuguese(invitation.data_evento) : "A definir"}</div>
+              
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-white/10 rounded-lg shrink-0">
+                  <Clock className="w-4 h-4 text-teal-300" />
+                </div>
+                <div>
+                  <span className="text-[9px] text-white/50 block font-bold uppercase tracking-wider">Horário</span>
+                  <span className="text-xs font-bold block">{invitation.horario ? `${invitation.horario}h` : "A definir"}</span>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2 mr-0.5 bg-white/15 rounded-xl">
-                <Clock className="w-5 h-5 text-teal-300" />
+            {/* Location row */}
+            <div className="flex items-start gap-2.5">
+              <div className="p-2 bg-white/10 rounded-xl shrink-0 mt-0.5">
+                <MapPin className="w-4 h-4 text-rose-300" />
               </div>
-              <div>
-                <div className="text-[10px] text-white/70 font-semibold uppercase tracking-wider">Horário</div>
-                <div className="text-xs font-bold">{invitation.horario ? `${invitation.horario}h` : "A definir"}</div>
+              <div className="flex-1 min-w-0">
+                <span className="text-[9px] text-white/50 block font-bold uppercase tracking-wider">Local da Festa</span>
+                <span className="text-xs font-bold block truncate text-stone-100">{invitation.local || "A definir"}</span>
+                {invitation.endereco && <span className="text-[10px] text-white/70 block truncate mt-0.5 leading-tight">{invitation.endereco}</span>}
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="p-2 mr-0.5 bg-white/15 rounded-xl">
-                <MapPin className="w-5 h-5 text-rose-300" />
+            {/* Centered Map with Pin collapsible trigger */}
+            {invitation.endereco && (
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <button
+                  type="button"
+                  id="toggle-map-preview-btn"
+                  onClick={() => setShowMap(!showMap)}
+                  className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase text-amber-300 transition-all cursor-pointer"
+                >
+                  <span>{showMap ? "🙈 Ocultar Mapa de Localização" : "🗺️ Ver Mapa no Convite"}</span>
+                </button>
+                
+                {showMap && (
+                  <div className="mt-3 rounded-xl overflow-hidden border border-white/15 h-32 relative animate-fadeIn shadow-inner">
+                    <iframe
+                      title="Localização no Mapa"
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(invitation.endereco)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                      className="w-full h-full border-0 filter invert-[0.9] hue-rotate-[180deg] opacity-90 hover:opacity-100 transition-opacity"
+                      allowFullScreen={false}
+                      loading="lazy"
+                    />
+                  </div>
+                )}
               </div>
-              <div className="flex-1">
-                <div className="text-[10px] text-white/70 font-semibold uppercase tracking-wider">Local da Festa</div>
-                <div className="text-xs font-bold leading-tight">{invitation.local || "A definir"}</div>
-                {invitation.endereco && <div className="text-[10px] text-white/75 truncate mt-0.5">{invitation.endereco}</div>}
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
