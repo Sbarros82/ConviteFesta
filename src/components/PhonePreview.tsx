@@ -47,25 +47,54 @@ export function safeParseEventDate(dateStr: string, timeStr: string): Date {
   return d;
 }
 
+export interface CustomizerOptions {
+  event_type?: "aniversario" | "casamento" | "cha_bebe" | "confraternizacao" | "outro";
+  titulo_evento?: string;
+  font_family?: string;
+  text_color?: string;
+}
+
+export function parseDicasPresentes(dicasRaw: string | undefined): { gifts: GiftSuggestion, customizer: CustomizerOptions } {
+  let gifts: GiftSuggestion = { camisa: "", calca: "", sapato: "", brinquedos: "" };
+  let customizer: CustomizerOptions = { event_type: "aniversario", titulo_evento: "", font_family: undefined, text_color: undefined };
+
+  if (!dicasRaw) {
+    return { gifts, customizer };
+  }
+
+  try {
+    const data = JSON.parse(dicasRaw);
+    if (data && typeof data === "object") {
+      if (data.gifts || data.customizer) {
+        gifts = data.gifts || gifts;
+        customizer = data.customizer || customizer;
+      } else {
+        gifts = {
+          camisa: data.camisa || "",
+          calca: data.calca || "",
+          sapato: data.sapato || "",
+          brinquedos: data.brinquedos || ""
+        };
+      }
+    }
+  } catch {
+    gifts = {
+      camisa: "",
+      calca: "",
+      sapato: "",
+      brinquedos: dicasRaw
+    };
+  }
+
+  return { gifts, customizer };
+}
+
 export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirmed, className = "h-[580px]" }: PhonePreviewProps) {
   // Parse themes
   const activePreset = PRESET_THEMES.find(t => t.id === invitation.theme_id) || PRESET_THEMES[0];
   
-  // Parse gifts
-  let gifts: GiftSuggestion = { camisa: "6", calca: "8", sapato: "28", brinquedos: "Lego, Carrinhos" };
-  if (invitation.dicas_presentes) {
-    try {
-      gifts = JSON.parse(invitation.dicas_presentes);
-    } catch {
-      // Maybe simple text format
-      gifts = {
-        camisa: "6",
-        calca: "8",
-        sapato: "28",
-        brinquedos: invitation.dicas_presentes || "Não especificado"
-      };
-    }
-  }
+  // Parse gifts and custom styles
+  const { gifts, customizer } = parseDicasPresentes(invitation.dicas_presentes);
 
   // Youtube audio player state
   const ytVideoId = getYouTubeId(invitation.musica_url);
@@ -193,9 +222,12 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
     ? { backgroundImage: `url(${invitation.theme_id})`, backgroundSize: "cover", backgroundPosition: "center" }
     : undefined;
 
+  const fontClass = customizer.font_family || activePreset.fontFamily || "font-sans";
+  const textColorStyle = customizer.text_color ? { color: customizer.text_color } : {};
+
   return (
     <div 
-      className={`relative w-full ${className} overflow-y-auto overflow-x-hidden shadow-2xl flex flex-col font-sans transition-all duration-500`}
+      className={`relative w-full ${className} overflow-y-auto overflow-x-hidden shadow-2xl flex flex-col ${fontClass} transition-all duration-500`}
       style={bgStyle}
     >
       {/* Background Decorative Pattern (only for standard presets) */}
@@ -274,15 +306,32 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
             </div>
           )}
 
-          <h1 className="text-3xl font-extrabold tracking-tight drop-shadow-md text-white mb-1">
-            {invitation.nome_crianca || "Nome do Aniversariante"}
+          <h1 
+            className="text-3xl font-extrabold tracking-tight drop-shadow-md mb-1"
+            style={textColorStyle}
+          >
+            {customizer.titulo_evento || invitation.nome_crianca || "Nome do Evento"}
           </h1>
           
-          <div className="bg-amber-400 text-slate-950 font-bold px-3 py-1 rounded-full text-xs uppercase tracking-wider shadow-md mb-4 self-center animate-bounce">
-            Completa {invitation.idade || "0"} Anos! 🎉
-          </div>
+          {((customizer.event_type === "aniversario" || !customizer.event_type) && invitation.idade > 0) && (
+            <div className="bg-amber-400 text-slate-950 font-bold px-3 py-1 rounded-full text-xs uppercase tracking-wider shadow-md mb-4 self-center animate-bounce">
+              Completa {invitation.idade || "0"} Anos! 🎉
+            </div>
+          )}
 
-          <p className="text-sm border-l-2 border-white/30 pl-3 italic text-white/90 drop-shadow max-w-xs mx-auto mb-5 leading-relaxed">
+          {customizer.event_type && customizer.event_type !== "aniversario" && (
+            <div className="bg-amber-400 text-slate-950 font-bold px-3 py-1 rounded-full text-xs uppercase tracking-wider shadow-md mb-4 self-center animate-bounce">
+              {customizer.event_type === "casamento" ? "Vamos Casar! 💍" :
+               customizer.event_type === "cha_bebe" ? "Chá de Bebê! 🍼" :
+               customizer.event_type === "confraternizacao" ? "Confraternização! 🍻" :
+               "Evento Especial! 🎉"}
+            </div>
+          )}
+
+          <p 
+            className="text-sm border-l-2 border-white/30 pl-3 italic drop-shadow max-w-xs mx-auto mb-5 leading-relaxed"
+            style={customizer.text_color ? { color: customizer.text_color, borderColor: customizer.text_color } : {}}
+          >
             "{invitation.mensagem || "Você está convidado para curtir essa super festa comigo! Não perca!"}"
           </p>
 
@@ -413,7 +462,7 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
             </h3>
 
             <p className="text-xs text-stone-300 text-center mb-6 leading-relaxed">
-              Caso deseje presentear {invitation.nome_crianca || "o aniversariante"}, seguem os tamanhos recomendados e preferências de brinquedos:
+              Caso deseje presentear {invitation.nome_crianca || "o organizador"}, seguem os tamanhos recomendados e preferências de itens:
             </p>
 
             <div className="grid grid-cols-3 gap-3 mb-6">
@@ -573,11 +622,13 @@ export function PhonePreview({ invitation, isPreviewMode = false, onGuestConfirm
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-white/70 uppercase mb-1">Recado para o aniversariante</label>
+                    <label className="block text-[11px] font-bold text-white/70 uppercase mb-1">
+                      Recado para {invitation.nome_crianca || "o organizador"}
+                    </label>
                     <textarea 
                       id="guest-message-input"
                       rows={2}
-                      placeholder="Deixe uma mensagem fofa para o aniversariante!"
+                      placeholder="Deixe um recado bem legal!"
                       value={guestMessage}
                       onChange={(e) => setGuestMessage(e.target.value)}
                       className="w-full bg-white/5 border border-white/15 focus:border-amber-400 rounded-lg py-2 px-3 text-xs text-white focus:outline-none resize-none"

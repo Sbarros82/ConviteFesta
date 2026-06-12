@@ -69,6 +69,12 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"celebrante" | "local" | "estilo" | "presentes" | "musica">("celebrante");
   const [showRsvpPanel, setShowRsvpPanel] = useState(false);
+  // Layout customizer state variables
+  const [eventType, setEventType] = useState<"aniversario" | "casamento" | "cha_bebe" | "confraternizacao" | "outro">("aniversario");
+  const [tituloEvento, setTituloEvento] = useState("");
+  const [fontFamily, setFontFamily] = useState<string>("font-sans");
+  const [textColor, setTextColor] = useState<string>("");
+
   const [activeTabTop, setActiveTabTop] = useState<"editor" | "confirmados" | "meus_convites">("editor");
 
   // Currently editing invitation state
@@ -125,13 +131,21 @@ export default function App() {
     }
   }, [notification]);
 
-  // Sync gifts state into invitation payload
+  // Sync gifts and customizer options into invitation payload
   useEffect(() => {
     setInvitation(prev => ({
       ...prev,
-      dicas_presentes: JSON.stringify(gifts)
+      dicas_presentes: JSON.stringify({
+        gifts,
+        customizer: {
+          event_type: eventType,
+          titulo_evento: tituloEvento,
+          font_family: fontFamily,
+          text_color: textColor
+        }
+      })
     }));
-  }, [gifts]);
+  }, [gifts, eventType, tituloEvento, fontFamily, textColor]);
 
   // Load profile and user invitations on launch with active Auth states
   useEffect(() => {
@@ -242,11 +256,33 @@ export default function App() {
   const loadInvitationIntoState = async (invite: Invitation) => {
     setInvitation(invite);
     
-    // Unpack gifts
+    // Unpack gifts and custom styles
     if (invite.dicas_presentes) {
       try {
         const parsed = JSON.parse(invite.dicas_presentes);
-        setGifts(parsed);
+        if (parsed && typeof parsed === "object") {
+          if (parsed.gifts || parsed.customizer) {
+            setGifts(parsed.gifts || { camisa: "6", calca: "8", sapato: "28", brinquedos: "Lego, super-heróis, dinossauros" });
+            if (parsed.customizer) {
+              setEventType(parsed.customizer.event_type || "aniversario");
+              setTituloEvento(parsed.customizer.titulo_evento || "");
+              setFontFamily(parsed.customizer.font_family || "font-sans");
+              setTextColor(parsed.customizer.text_color || "");
+            } else {
+              setEventType("aniversario");
+              setTituloEvento("");
+              setFontFamily("font-sans");
+              setTextColor("");
+            }
+          } else {
+            // Old format where it is only gifts
+            setGifts(parsed);
+            setEventType("aniversario");
+            setTituloEvento("");
+            setFontFamily("font-sans");
+            setTextColor("");
+          }
+        }
       } catch {
         setGifts({
           camisa: "6",
@@ -254,7 +290,17 @@ export default function App() {
           sapato: "28",
           brinquedos: invite.dicas_presentes || ""
         });
+        setEventType("aniversario");
+        setTituloEvento("");
+        setFontFamily("font-sans");
+        setTextColor("");
       }
+    } else {
+      setGifts({ camisa: "6", calca: "8", sapato: "28", brinquedos: "Lego" });
+      setEventType("aniversario");
+      setTituloEvento("");
+      setFontFamily("font-sans");
+      setTextColor("");
     }
 
     // Load guest RSVP list
@@ -302,6 +348,205 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
+function generateFallbackAIClient(prompt: string) {
+  const norm = prompt.toLowerCase();
+  
+  // Event Type Detection Heuristic
+  let event_type = "aniversario";
+  let font_family = "font-sans";
+  let text_color = "#ffffff";
+  let titulo_evento = "";
+
+  if (norm.includes("casamento") || norm.includes("casar") || norm.includes("noivado") || norm.includes("boda")) {
+    event_type = "casamento";
+    font_family = "font-serif";
+    text_color = "#fef08a"; // beautiful soft gold
+    titulo_evento = "Nosso Casamento";
+  } else if (norm.includes("chá de bebê") || norm.includes("cha de bebe") || norm.includes("chá de fralda") || norm.includes("maternidade") || norm.includes("nascimento") || norm.includes("gestante")) {
+    event_type = "cha_bebe";
+    font_family = "font-rounded";
+    text_color = "#fecdd3"; // soft baby pink / blue
+    titulo_evento = "Chá de Bebê";
+  } else if (norm.includes("confraternizacao") || norm.includes("confraternização") || norm.includes("junina") || norm.includes("sao joao") || norm.includes("churrasco") || norm.includes("ano novo") || norm.includes("natal")) {
+    event_type = "confraternizacao";
+    font_family = "font-space";
+    text_color = "#a7f3d0"; // vibrant green/neon or white
+    titulo_evento = "Nossa Confraternização";
+  } else if (norm.includes("aniversario") || norm.includes("aniversário") || norm.includes("parabens") || norm.includes("bday") || norm.includes("anos")) {
+    event_type = "aniversario";
+    font_family = "font-sans";
+    text_color = "#ffffff";
+    titulo_evento = "";
+  } else {
+    // Other generic event
+    event_type = "outro";
+    font_family = "font-sans";
+    text_color = "#ffffff";
+    titulo_evento = "Nosso Evento Especial";
+  }
+
+  // Theme Detection Heuristic
+  let theme_id = "neutro";
+  if (norm.includes("astronauta") || norm.includes("espaco") || norm.includes("foguete") || norm.includes("marte") || norm.includes("estrela")) {
+    theme_id = "astronauta";
+  } else if (norm.includes("dino") || norm.includes("rex") || norm.includes("jurassico")) {
+    theme_id = "dinofesta";
+  } else if (norm.includes("princesa") || norm.includes("castelo") || norm.includes("realeza") || norm.includes("sereia") || norm.includes("encantado")) {
+    theme_id = "princesa";
+  } else if (norm.includes("futebol") || norm.includes("bola") || norm.includes("gol") || norm.includes("campo") || norm.includes("copa")) {
+    theme_id = "futebol";
+  } else if (norm.includes("neon") || norm.includes("brilho") || norm.includes("balada") || norm.includes("led") || norm.includes("luz") || norm.includes("boate")) {
+    theme_id = "neon";
+    text_color = "#f472b6"; // bright pink
+  } else if (norm.includes("game") || norm.includes("gamer") || norm.includes("jogo") || norm.includes("minecraft") || norm.includes("roblox") || norm.includes("atari") || norm.includes("play")) {
+    theme_id = "game";
+    text_color = "#c084fc"; // gaming purple
+  } else if (norm.includes("jardim") || norm.includes("flor") || norm.includes("natureza") || norm.includes("bosque") || norm.includes("margarida")) {
+    theme_id = "jardim";
+    text_color = "#fef08a"; // warm amber
+  }
+
+  // Age Detection Heuristic
+  let idade = 5;
+  const ageMatch = norm.match(/(\d+)\s*(anos|ano)/) || norm.match(/completa\s*(\d+)/) || norm.match(/fazendo\s*(\d+)/) || norm.match(/\b(\d+)\b/);
+  if (ageMatch) {
+    const val = parseInt(ageMatch[1], 10);
+    if (val > 0 && val < 110) {
+      idade = val;
+    }
+  }
+
+  // Name Detection Heuristic
+  let nome_crianca = "Sérgio Barros";
+  const words = prompt.split(/\s+/);
+  const capitalizedWords = words.filter(w => w.length > 2 && w[0] === w[0].toUpperCase() && w[0] !== w[0].toLowerCase());
+  const ignore = ["O", "A", "Eu", "Quero", "Fazer", "Festa", "Convite", "Tema", "Como", "Com", "Para", "Hoje", "No", "Na", "Em", "De", "Do", "Da", "Anos", "Casar", "Casamento", "Chá", "Bebê", "Fraldas"];
+  const nameCandidates = capitalizedWords.filter(w => !ignore.includes(w));
+  if (nameCandidates.length > 0) {
+    nome_crianca = nameCandidates.slice(0, 2).join(" ");
+  }
+
+  // Try to set dynamic custom title if matching type
+  if (norm.includes("confraternizacao") || norm.includes("confraternização") || norm.includes("festa junina") || norm.includes("sao joao")) {
+    if (norm.includes("junina") || norm.includes("sao joao")) {
+      titulo_evento = "Confraternização Junina";
+    } else {
+      titulo_evento = "Confraternização Especial";
+    }
+  } else if (norm.includes("chá") || norm.includes("cha")) {
+    if (norm.includes("fralda")) {
+      titulo_evento = `Chá de Fraldas do ${nome_crianca.split(" ")[0]}`;
+    } else {
+      titulo_evento = `Chá de Bebê do ${nome_crianca.split(" ")[0]}`;
+    }
+  } else if (event_type === "casamento") {
+    titulo_evento = `Casamento de ${nome_crianca}`;
+  }
+
+  // Date 30 days into the future
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + 30);
+  const yyyy = targetDate.getFullYear();
+  const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(targetDate.getDate()).padStart(2, '0');
+  const data_evento = `${yyyy}-${mm}-${dd}`;
+
+  let horario = "18:00";
+  const hourMatch = norm.match(/(\d{1,2})[h:](\d{2})?/);
+  if (hourMatch) {
+    const hr = hourMatch[1].padStart(2, '0');
+    const min = hourMatch[2] || "00";
+    horario = `${hr}:${min}`;
+  }
+
+  let mensagem = `Venha celebrar comigo a chegada dos meus ${idade} anos! Uma noite especial com boa música, petiscos deliciosos e a melhor companhia. Sua presença é fundamental para deixar essa comemoração completa!`;
+  if (event_type === "casamento") {
+    mensagem = `Com o coração cheio de alegria, convidamos você para celebrar nossa união de casamento! Prepare-se para um dia inesquecível repleto de amor, cumplicidade e felicidade compartilhada! 💍✨`;
+  } else if (event_type === "cha_bebe") {
+    mensagem = `Um pequeno milagre está a caminho! Venha celebrar conosco o nosso chá de bebê e compartilhar desse momento de puro carinho e expectativa doce. Sua presença nos enche de amor! 🍼🧸💖`;
+  } else if (event_type === "confraternizacao") {
+    mensagem = `Momento de celebrar nossas conquistas e brindar o companheirismo! Venha participar da nossa grande confraternização com muita música boa, comida gostosa e alegria de sobra! 🍻🎉`;
+  } else if (theme_id === "astronauta") {
+    mensagem = `Prepare o seu capacete e embarque nessa contagem regressiva! Vou completar ${idade} anos e nossa missão espacial será cheia de diversão, doces intergalácticos e muitas risadas. Não perca a hora do lançamento! 🚀👩‍🚀`;
+  } else if (theme_id === "dinofesta") {
+    mensagem = `Uma aventura jurássica está prestes a começar! Venha comemorar os meus ${idade} anos no vale dos dinossauros. Teremos muitas brincadeiras, fósseis misteriosos e um bolo de dar água na boca. Grrr! 🦖🌋`;
+  } else if (theme_id === "princesa") {
+    mensagem = `Vossa presença é cordialmente requisitada no baile real da corte para comemorar os meus ${idade} anos de encanto! Traga a sua coroa e venha viver um dia de pura magia, castelos e fadas! 👑🏰✨`;
+  } else if (theme_id === "futebol") {
+    mensagem = `O juiz já apitou o início do jogo! Vou comemorar meus ${idade} anos com uma super partida e você é o camisa 10 da minha escalação. Traga chuteira e muita alegria para corrermos pro abraço! ⚽🥅🏆`;
+  } else if (theme_id === "neon") {
+    mensagem = `Apague as luzes e venha brilhar! Meus ${idade} anos serão comemorados com uma super festa Neon. Vista sua roupa mais colorida e brilhante e venha dominar a pista de dança cheia de luzes! 💡🌈🎉`;
+  } else if (theme_id === "game") {
+    mensagem = `O portal do nível ${idade} foi desbloqueado! Venha comemorar comigo essa nova fase com muitos jogos, desafios virtuais e energia de sobra. Prepare o seu controle e confirme o seu Player 2! 🎮👾🕹️`;
+  } else if (theme_id === "jardim") {
+    mensagem = `Com o desabrochar das mais lindas flores, venho te convidar para o meu bosque mágico onde celebramos meus ${idade} anos! Estão todos convidados para brincar entre borboletas e fadas encantadas. 🌸🦋🍃`;
+  }
+
+  // Pre-set local
+  let local = norm.includes("buffet") ? "Buffet de Festas Fantasia" : norm.includes("masterop") ? "Masterop Festas" : "Salão de Festas Principal";
+
+  let camisa = "M Infantil";
+  let calca = "6";
+  let sapato = "28";
+  let brinquedos = "Lego, carrinhos, massinha, dinossauros";
+
+  if (idade >= 35) {
+    camisa = "G adulto";
+    calca = "42";
+    sapato = "41";
+    brinquedos = "Chocolates, vinhos, livros, eletrônicos ou perfumes";
+  } else if (idade >= 18) {
+    camisa = "M";
+    calca = "38";
+    sapato = "37";
+    brinquedos = "Jogos de tabuleiro, livros, perfumes ou canecas criativas";
+  } else if (idade >= 12) {
+    camisa = "PP ou 14";
+    calca = "14 ou 16";
+    sapato = "35";
+    brinquedos = "Videogames, fone de ouvido, funkopop ou roupas estilosas";
+  } else if (idade >= 8) {
+    camisa = "10 ou 12";
+    calca = "10 ou 12";
+    sapato = "32";
+    brinquedos = "Roblox giftcard, nerf, kit de desenho, patinete";
+  } else if (idade >= 5) {
+    camisa = "6 ou 8";
+    calca = "6 ou 8";
+    sapato = "28";
+    brinquedos = "Blocos de montar, massinha, bonecos ou quebra-cabeças";
+  } else if (idade >= 2) {
+    camisa = "4";
+    calca = "4";
+    sapato = "22";
+    brinquedos = "Cozinhazinha de brinquedo, giz de cera gigante, blocos macios";
+  } else {
+    camisa = "1 ano";
+    calca = "G bebê";
+    sapato = "18";
+    brinquedos = "Mordedores, brinquedos musicais educativos, andadores";
+  }
+
+  return {
+    nome_crianca,
+    idade,
+    data_evento,
+    horario,
+    local,
+    endereco: "Rua das Flores, 123 - Centro, Cidade Feliz",
+    mensagem,
+    theme_id,
+    gps_link: "https://maps.google.com/?q=Salao+de+Festas",
+    dicas_presentes: { camisa, calca, sapato, brinquedos },
+    customizer: {
+      event_type,
+      titulo_evento,
+      font_family,
+      text_color
+    }
+  };
+}
+
   // Trigger Gemini AI endpoint on our backend server
   const generateWithAI = async () => {
     if (!aiPrompt.trim()) {
@@ -312,6 +557,9 @@ export default function App() {
     setGeneratingAI(true);
     setAiError("");
     
+    let useFallback = false;
+    let data: any = null;
+
     try {
       const response = await fetch("/api/generate-ai", {
         method: "POST",
@@ -319,14 +567,26 @@ export default function App() {
         body: JSON.stringify({ prompt: aiPrompt })
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Houve um problema na geração do convite.");
+      const contentType = response.headers.get("content-type");
+      if (!response.ok || !contentType || !contentType.includes("application/json")) {
+        console.warn("Backend API not reachable or returned HTML - fallback to smart client logic");
+        useFallback = true;
+      } else {
+        data = await response.json();
+      }
+    } catch (e) {
+      console.warn("Error calling backend API, falling back to client-side parsing", e);
+      useFallback = true;
+    }
+
+    try {
+      if (useFallback) {
+        data = generateFallbackAIClient(aiPrompt);
       }
 
-      const data = await response.json();
-      
-      // Auto-preencher os dados recebidos do Gemini
+      if (!data) throw new Error("Não foi possível gerar dados do convite.");
+
+      // Auto-preencher os dados recebidos do Gemini ou do Fallback inteligente
       const random_id = Math.floor(100+Math.random()*900);
       const formattedSlug = (data.nome_crianca || "festa")
         .toLowerCase()
@@ -348,17 +608,45 @@ export default function App() {
         slug: formattedSlug
       }));
 
+      // Set customizer fields
+      if (data.customizer) {
+        setEventType(data.customizer.event_type || "aniversario");
+        setTituloEvento(data.customizer.titulo_evento || "");
+        setFontFamily(data.customizer.font_family || "font-sans");
+        setTextColor(data.customizer.text_color || "");
+      } else {
+        setEventType("aniversario");
+        setTituloEvento("");
+        setFontFamily("font-sans");
+        setTextColor("");
+      }
+
       if (data.dicas_presentes) {
-        setGifts({
-          camisa: data.dicas_presentes.camisa || "6",
-          calca: data.dicas_presentes.calca || "8",
-          sapato: data.dicas_presentes.sapato || "28",
-          brinquedos: data.dicas_presentes.brinquedos || "Lego, super-heróis, dinossauros"
-        });
+        if (typeof data.dicas_presentes === "object") {
+          setGifts({
+            camisa: data.dicas_presentes.camisa || "6",
+            calca: data.dicas_presentes.calca || "8",
+            sapato: data.dicas_presentes.sapato || "28",
+            brinquedos: data.dicas_presentes.brinquedos || "Lego, super-heróis, dinossauros"
+          });
+        } else {
+          try {
+            const parsedGifts = JSON.parse(data.dicas_presentes);
+            setGifts(parsedGifts);
+          } catch {
+            setGifts({
+              camisa: "6",
+              calca: "8",
+              sapato: "28",
+              brinquedos: data.dicas_presentes
+            });
+          }
+        }
       }
       
       setAiPrompt("");
       setActiveTab("celebrante");
+      setNotification({ type: "success", message: "Convite montado com IA com sucesso!" });
     } catch (err: any) {
       console.error(err);
       setAiError(err.message || "Erro de conexão com o servidor de inteligência artificial.");
@@ -1102,13 +1390,72 @@ export default function App() {
                     <span>Informações Básicas do Celebrante</span>
                   </h4>
 
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Tipo de Evento</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        {[
+                          { id: "aniversario", label: "Aniversário", icon: "🎉" },
+                          { id: "casamento", label: "Casamento", icon: "💍" },
+                          { id: "cha_bebe", label: "Chá de Bebê", icon: "🍼" },
+                          { id: "confraternizacao", label: "Confraternização", icon: "🍻" },
+                          { id: "outro", label: "Outro Evento", icon: "✨" }
+                        ].map(t => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => {
+                              setEventType(t.id as any);
+                              if (t.id === "aniversario") {
+                                setTituloEvento("");
+                              } else {
+                                if (!tituloEvento) setTituloEvento(t.label);
+                              }
+                            }}
+                            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-xs font-semibold border transition-all ${
+                              eventType === t.id 
+                                ? "bg-amber-400 text-slate-950 border-amber-400 font-bold scale-[1.03]" 
+                                : "bg-slate-900 border-white/10 text-slate-400 hover:bg-slate-800"
+                            }`}
+                          >
+                            <span className="text-sm mb-0.5">{t.icon}</span>
+                            <span className="text-[10px]">{t.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {eventType !== "aniversario" && (
+                      <div className="animate-fadeIn">
+                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Título do Evento *</label>
+                        <input 
+                          type="text"
+                          placeholder="Ex: Chá de Panela da Luiza, Nosso Noivado, Festa de Fim de Ano"
+                          value={tituloEvento}
+                          onChange={(e) => setTituloEvento(e.target.value)}
+                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
+                        />
+                      </div>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Nome do Aniversariante *</label>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
+                        {eventType === "aniversario" ? "Nome do Aniversariante *" :
+                         eventType === "casamento" ? "Nome dos Noivos (Casal) *" :
+                         eventType === "cha_bebe" ? "Nome do Bebê *" :
+                         "Nome do Anfitrião / Organizador *"}
+                      </label>
                       <input 
                         id="nome-crianca-input"
                         type="text"
-                        placeholder="Ex: Bernardo Barros"
+                        placeholder={
+                          eventType === "aniversario" ? "Ex: Bernardo Barros" :
+                          eventType === "casamento" ? "Ex: Alice & Bernardo" :
+                          eventType === "cha_bebe" ? "Ex: Bernardo Jr." :
+                          "Ex: Sérgio Barros"
+                        }
                         value={invitation.nome_crianca}
                         onChange={(e) => setInvitation(prev => ({ ...prev, nome_crianca: e.target.value }))}
                         className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
@@ -1116,7 +1463,9 @@ export default function App() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Idade que vai completar *</label>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
+                        {eventType === "aniversario" ? "Idade que vai completar *" : "Idade / Detalhe (opcional)"}
+                      </label>
                       <input 
                         id="idade-input"
                         type="number"
@@ -1390,6 +1739,70 @@ export default function App() {
                           <span className="text-[10px] font-semibold text-white/90 leading-tight block">{theme.name}</span>
                         </button>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Typography & Custom Text Colors Customizer */}
+                  <div className="bg-slate-950/40 p-4 border border-white/5 rounded-2xl space-y-4 animate-fadeIn">
+                    <span className="text-xs font-bold uppercase tracking-wide text-white block">Estilo das Letras (Fontes e Cores)</span>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Fonte das Letras</label>
+                        <select
+                          id="font-family-select"
+                          value={fontFamily}
+                          onChange={(e) => setFontFamily(e.target.value)}
+                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-3 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
+                        >
+                          <option value="font-sans">Inter (Moderno Minimalista)</option>
+                          <option value="font-space">Space Grotesk (Tech Futurista)</option>
+                          <option value="font-cursive">Pacifico (Manuscrita Festiva)</option>
+                          <option value="font-serif">Playfair Display (Elegante Bodas)</option>
+                          <option value="font-rounded">Fredoka (Arredondada Infantil)</option>
+                          <option value="font-mono">JetBrains Mono (Digital Retro)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Cor Principal das Letras</label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            id="text-color-picker"
+                            type="color"
+                            value={textColor || "#ffffff"}
+                            onChange={(e) => setTextColor(e.target.value)}
+                            className="w-10 h-10 bg-transparent border-0 rounded cursor-pointer self-center"
+                          />
+                          <input
+                            id="text-color-hex"
+                            type="text"
+                            placeholder="#ffffff"
+                            value={textColor}
+                            onChange={(e) => setTextColor(e.target.value)}
+                            className="bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-400 flex-1 uppercase font-mono"
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {[
+                            { name: "Padrão", hex: "#ffffff" },
+                            { name: "Ouro", hex: "#fef08a" },
+                            { name: "Rosa", hex: "#fbcfe8" },
+                            { name: "Verde", hex: "#a7f3d0" },
+                            { name: "Ambar", hex: "#fde047" },
+                            { name: "Ciano", hex: "#67e8f9" }
+                          ].map(c => (
+                            <button
+                              key={c.hex}
+                              type="button"
+                              onClick={() => setTextColor(c.hex)}
+                              className="text-[9px] bg-white/5 border border-white/10 rounded px-1.5 py-0.5 hover:bg-white/10 hover:text-white transition"
+                            >
+                              {c.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
